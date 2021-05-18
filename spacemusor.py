@@ -5,11 +5,25 @@ WIDTH = 800
 HEIGHT = 640
 FPS = 30
 
-
-
-global enemy1_spawn_delay
+global enemy1_spawn_delay, SCORE
 enemy1_spawn_delay = 300
+SCORE = 0
 
+class explosive(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.id = 0
+        self.image = explosive_sprites[self.id]
+        self.rect = self.image.get_rect()
+        self.rect.centerx = x
+        self.rect.centery = y
+
+    def update(self):
+        if self.id != 17:
+            self.id += 1
+            self.image = explosive_sprites[self.id]
+        else:
+            self.kill()
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -51,10 +65,15 @@ class Enemy1(pygame.sprite.Sprite):
         self.rect.x = random.randint(50,WIDTH-50)
         self.rect.bottom = 0
         self.speed = 3
+        self.hp = 2
 
     def update(self):
+        global SCORE
         self.rect.y += self.speed
         if self.rect.y > HEIGHT-10:
+            self.kill()
+        if self.hp == 0:
+            SCORE += 1
             self.kill()
 
 class Bullet_Yellow(pygame.sprite.Sprite):
@@ -79,6 +98,14 @@ def enemies_spawn():
     else:
         enemy1_spawn_delay -= random.randint(1,3)
 
+font_name = pygame.font.match_font('arial')
+def draw_text(surf, text, size, x, y):
+    font = pygame.font.Font(font_name, size)
+    text_surface = font.render(text, True, '#FFF222')
+    text_rect = text_surface.get_rect()
+    text_rect.midtop = (x, y)
+    surf.blit(text_surface, text_rect)
+
 pygame.init()
 pygame.mixer.init()
 
@@ -99,12 +126,19 @@ player_right_img = pygame.image.load(player_right_img)
 bullet_yellow = 'spacemusor/sprites/bullet_yellow.png'
 bullet_yellow = pygame.image.load(bullet_yellow)
 
+explosive_sprites = []
+for i in range(1,19):
+    x = 'spacemusor/sprites/explosive/'+str(i)+'.png'
+    x = pygame.image.load(x)
+    explosive_sprites.append(x)
+
 enemy1_img = 'spacemusor/sprites/enemy1.png'
 enemy1_img = pygame.image.load(enemy1_img)
 
 enemies = pygame.sprite.Group()
 sprites = pygame.sprite.Group()
 bullets = pygame.sprite.Group()
+other = pygame.sprite.Group()
 player = Player()
 sprites.add(player)
 
@@ -116,19 +150,30 @@ while running:
     clock.tick(FPS)
     screen.blit(bg, (0, 0))
 
+    draw_text(screen, str(SCORE), 40, 50, 50)
+
     enemies_spawn()
 
     for i in pygame.event.get():
         if i.type == pygame.QUIT:
             running = False
 
+    hits = pygame.sprite.groupcollide(enemies, bullets, False, True)
+    for i in hits:
+        i.hp -= 1
+        if i.hp == 0:
+            x = explosive(i.rect.centerx, i.rect.centery)
+            other.add(x)
+
     sprites.update()
     enemies.update()
     bullets.update()
+    other.update()
 
     sprites.draw(screen)
     enemies.draw(screen)
     bullets.draw(screen)
+    other.draw(screen)
 
     pygame.display.flip()
 
