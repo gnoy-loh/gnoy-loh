@@ -123,7 +123,7 @@ class Meteor(pygame.sprite.Sprite):
         self.image = pygame.transform.rotozoom(meteors_sprite[self.id], self.angle, 1)
         self.rect = self.image.get_rect(center=self.rect.center)
         self.rect.move_ip(self.speedx, self.speedy)
-        #удаление когда вылетает за границу, и какой нибудь спавнер 
+        #удаление когда вылетает за границу, и какой нибудь спавнер и столкновение с игроком
 
 def enemies_spawn():
     global enemy1_spawn_delay
