@@ -1,5 +1,9 @@
+#доделать кнопку паузы, метеориты/враги, размер метеоритов
+
+
 import pygame
 import random
+
 
 WIDTH = 800
 HEIGHT = 640
@@ -8,6 +12,8 @@ FPS = 30
 global enemy1_spawn_delay, SCORE
 enemy1_spawn_delay = 300
 SCORE = 0
+PAUSE = 1
+TIMER = 0
 
 class hit_effect(pygame.sprite.Sprite):
     def __init__(self):
@@ -70,6 +76,7 @@ class Player(pygame.sprite.Sprite):
                 self.shoot_position = True
             bullets.add(bullet)
             self.shoot_delay = 3
+            shoot1_snd.play()
         else:
             self.shoot_delay -= 1
 
@@ -106,6 +113,14 @@ class Bullet_Yellow(pygame.sprite.Sprite):
         if self.rect.y < 0:
             self.kill()
 
+class Button(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pause_btn
+        self.rect = self.image.get_rect()
+        self.rect.x = 670
+        self.rect.y = 10
+
 class Meteor(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -119,11 +134,14 @@ class Meteor(pygame.sprite.Sprite):
         self.speedy = random.randint(1, 5)
 
     def update(self):
-        self.angle += self.speedx
+        self.angle += self.speedx * PAUSE
         self.image = pygame.transform.rotozoom(meteors_sprite[self.id], self.angle, 1)
         self.rect = self.image.get_rect(center=self.rect.center)
-        self.rect.move_ip(self.speedx, self.speedy)
-        #удаление когда вылетает за границу, и какой нибудь спавнер и столкновение с игроком
+        self.rect.move_ip(self.speedx * PAUSE, self.speedy * PAUSE)
+        if self.rect.left > WIDTH + 100:
+            self.kill()
+        if self.rect.top > HEIGHT + 100:
+            self.kill()
 
 def enemies_spawn():
     global enemy1_spawn_delay
@@ -134,6 +152,10 @@ def enemies_spawn():
     else:
         enemy1_spawn_delay -= random.randint(1,3)
 
+def meteor_spawn():
+    if random.randint(1,100) == 50:
+        x = Meteor()
+        meteors.add(x)
 
 font_name = pygame.font.match_font('arial')
 def draw_text(surf, text, size, x, y):
@@ -146,6 +168,21 @@ def draw_text(surf, text, size, x, y):
 pygame.init()
 pygame.mixer.init()
 
+maintheme_snd = 'spacemusor/sounds/maintheme.mp3'
+maintheme_snd = pygame.mixer.Sound(maintheme_snd)
+hit_snd = 'spacemusor/sounds/hit.mp3'
+hit_snd = pygame.mixer.Sound(hit_snd)
+exp_snd = 'spacemusor/sounds/enemy_dead.mp3'
+exp_snd = pygame.mixer.Sound(exp_snd)
+shoot1_snd = 'spacemusor/sounds/shoot1.mp3'
+shoot1_snd = pygame.mixer.Sound(shoot1_snd)
+
+maintheme_snd.set_volume(0.01)
+hit_snd.set_volume(0.1)
+exp_snd.set_volume(0.1)
+shoot1_snd.set_volume(0.07)
+maintheme_snd.play()
+
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption('Game')
 clock = pygame.time.Clock()
@@ -153,12 +190,23 @@ clock = pygame.time.Clock()
 bg = 'spacemusor/sprites/bg.png'
 bg = pygame.image.load(bg)
 
+health_bar = 'spacemusor/sprites/ui/health.png'
+health_bar = pygame.image.load(health_bar)
+
+score_bar = 'spacemusor/sprites/ui/time.png'
+score_bar = pygame.image.load(score_bar)
+
 player_idle_img = 'spacemusor/sprites/player/player1.png'
 player_idle_img = pygame.image.load(player_idle_img)
 player_left_img = 'spacemusor/sprites/player/player_left.png'
 player_left_img = pygame.image.load(player_left_img)
 player_right_img = 'spacemusor/sprites/player/player_right.png'
 player_right_img = pygame.image.load(player_right_img)
+
+play_btn = 'spacemusor/sprites/ui/play.png'
+play_btn = pygame.image.load(play_btn)
+pause_btn = 'spacemusor/sprites/ui/pause.png'
+pause_btn = pygame.image.load(pause_btn)
 
 bullet_yellow = 'spacemusor/sprites/weapons/bullet_yellow.png'
 bullet_yellow = pygame.image.load(bullet_yellow)
@@ -189,53 +237,76 @@ other = pygame.sprite.Group()
 meteors = pygame.sprite.Group()
 player = Player()
 sprites.add(player)
-meteor = Meteor()
-other.add(meteor)
+button = Button()
+
 
 
 
 running = True
 
+
 while running:
     clock.tick(FPS)
     screen.blit(bg, (0, 0))
+    screen.blit(health_bar, (650, 560))
+    screen.blit(score_bar, (0, 0))
 
-    draw_text(screen, str(SCORE), 40, 50, 50)
 
-    enemies_spawn()
+    draw_text(screen, str(SCORE), 26, 60, 54)
+    draw_text(screen, str(TIMER), 26, 60, 8)
 
+    if PAUSE == 1:
+        enemies_spawn()
+        meteor_spawn()
 
     for i in pygame.event.get():
         if i.type == pygame.QUIT:
             running = False
+        if i.type == pygame.MOUSEBUTTONDOWN:
+            if button.rect.collidepoint(i.pos):
+                if PAUSE == 1:
+                    PAUSE = 0
+                    button.image = play_btn
+                else:
+                    PAUSE = 1
+                    button.image = pause_btn
 
     hits = pygame.sprite.groupcollide(enemies, bullets, False, True)
     for i in hits:
         i.hp -= 1
+        hit_snd.play()
         if i.hp == 0:
             x = explosive(i.rect.centerx, i.rect.centery)
+            exp_snd.play()
             other.add(x)
 
     hit_player = pygame.sprite.spritecollide(player, enemies, True)
     if hit_player:
         player.hp -= 10
         x = explosive(player.rect.centerx, player.rect.y)
+        exp_snd.play()
         other.add(x)
         x = hit_effect()
         other.add(x)
 
-    pygame.draw.rect(screen, '#ff183b', (680, 620, player.hp, 15))
+    pygame.draw.rect(screen, '#ff183b', (654, 571, player.hp, 15))
+    screen.blit(button.image, button.rect)
 
     sprites.update()
     enemies.update()
     bullets.update()
     other.update()
+    meteors.update()
+
+    button.update()
 
     sprites.draw(screen)
     enemies.draw(screen)
     bullets.draw(screen)
     other.draw(screen)
     meteors.draw(screen)
+
+
 
     pygame.display.flip()
 
